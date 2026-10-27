@@ -1,0 +1,12 @@
+# Secretos — NUNCA al repositorio (sección 9.2)
+.env
+*.key
+*.pem
+nginx/certs/
+
+# Datos de los contenedores
+data/
+backups/
+
+# Estado local del monitor del host
+host-monitor/estado/

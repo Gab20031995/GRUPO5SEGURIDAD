@@ -1,0 +1,445 @@
+{
+  "name": "NutriAnimales · Bot de consultas (gerencia)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "5131ef7e-cc95-453c-afe9-5fa5041fb56d",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "cred-telegram",
+          "name": "Telegram Bot NutriAnimales"
+        }
+      },
+      "webhookId": "09086225-f130-4aca-b822-f9de50128b5a"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT '{{ $json.message.chat.id }}'::text AS chat_id, monitor.rol_usuario_bot({{ $json.message.chat.id }}) AS rol;",
+        "options": {}
+      },
+      "id": "d8e5c1fd-c91f-47f3-b1c9-1fd3d5233511",
+      "name": "Rol del usuario",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        240,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1) Identifica al usuario de Telegram y recupera su rol desde la BD (nodo previo).\n// 2) Marca como no admisible cualquier entrada que intente colar sintaxis SQL,\n//    en lugar de ejecutarla. Lo que se bloquea queda registrado en auditoría.\nconst roles = {};\nfor (const it of ($items(\"Rol del usuario\") || [])) {\n  const r = it.json || {};\n  if (r.chat_id) roles[String(r.chat_id)] = r.rol;\n}\nconst indicadores = [\n  /;/, /--/, /\\/\\*/, /\\bunion\\b/i,\n  /\\b(drop|delete|truncate|alter|insert|update|grant|revoke|create|copy|call|merge)\\b/i,\n  /'\\s*or\\s+/i,\n];\nconst out = [];\nfor (const item of $input.all()) {\n  const m = item.json.message || {};\n  const chat_id = Number(m.chat && m.chat.id);\n  if (!Number.isInteger(chat_id)) continue;\n  const pregunta = String(m.text || '').trim().slice(0, 300);\n  const usuario = (m.from && (m.from.username || m.from.first_name)) || 'desconocido';\n  const rol = roles[String(chat_id)] || null;\n  const admisible = pregunta.length > 0 && !indicadores.some((re) => re.test(pregunta));\n  const payload = { chat_id: String(chat_id), usuario, pregunta, rol,\n                    motivo: !rol ? 'usuario no autorizado' : (!admisible ? 'entrada con sintaxis SQL' : null) };\n  out.push({ json: { ...payload, ok: !!rol && admisible,\n                     b64: Buffer.from(JSON.stringify(payload), 'utf8').toString('base64') } });\n}\nreturn out;"
+      },
+      "id": "2f5340ca-7f2b-4e8c-8b3e-fa5b43736e04",
+      "name": "Inspeccionar entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      },
+      "id": "3eb83f83-49f2-4c78-acc7-ac6902d34255",
+      "name": "¿Autorizado y válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nreturn [{ json: {\n  chat_id: r.chat_id, usuario: r.usuario, rol: r.rol, pregunta: r.pregunta,\n  body: {\n    model: 'llama-3.3-70b-versatile',\n    temperature: 0,\n    max_tokens: 400,\n    messages: [\n      { role: 'system', content: \"Eres el asistente de reportes de NutriAnimales S.A. Conviertes la pregunta del gerente en UNA sola consulta SQL de PostgreSQL. Reglas estrictas: 1) Solo SELECT. 2) Usa unicamente las vistas del esquema reportes: reportes.v_ventas_mensuales(mes,linea,num_ventas,sacos,monto_total), reportes.v_top_clientes(cliente_id,nombre,tipo,segmento,num_compras,monto_total), reportes.v_produccion_por_planta(planta,mes,estado,lotes,sacos), reportes.v_inventario_critico(nombre,categoria,stock_actual,stock_minimo,proveedor,bajo_minimo), reportes.v_calidad_por_lote(lote,producto,parametro,valor_obtenido,valor_esperado,aprobado), reportes.v_gastos_mensuales(mes,categoria,monto_total,registros). 3) Agrega siempre LIMIT 50 si no hay agregacion. 4) No uses punto y coma ni comentarios. 5) Responde solo con el SQL, sin explicaciones ni formato Markdown.\" },\n      { role: 'user', content: r.pregunta },\n    ],\n  },\n} }];"
+      },
+      "id": "f9faf26c-378d-43d2-b802-b9d6429827c9",
+      "name": "Preparar prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "b6dc4db0-bb66-4062-9fe7-f7053ba8db24",
+      "name": "Groq · generar SELECT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "cred-groq",
+          "name": "Groq API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $items(\"Preparar prompt\")[0].json;\nconst resp = $input.first().json;\nlet sql = '';\ntry { sql = resp.choices[0].message.content.trim(); } catch (e) { sql = ''; }\nsql = sql.replace(/^```sql/i, '').replace(/```$/,'').trim();\n// Debe ser un unico SELECT, sin separadores ni verbos de escritura.\nconst unaSentencia = !sql.includes(';');\nconst empiezaSelect = /^select\\b/i.test(sql) || /^with\\b/i.test(sql);\nconst sinEscritura = !/\\b(insert|update|delete|drop|alter|truncate|grant|revoke|create|copy|call|merge)\\b/i.test(sql);\nconst soloReportes = !/\\bfrom\\b\\s+(?!reportes\\.)/i.test(sql) ? true : /from\\s+reportes\\./i.test(sql);\nconst valido = sql.length > 0 && unaSentencia && empiezaSelect && sinEscritura;\nreturn [{ json: {\n  chat_id: prev.chat_id, usuario: prev.usuario, pregunta: prev.pregunta,\n  sql, valido,\n  b64: Buffer.from(sql, 'utf8').toString('base64'),\n} }];"
+      },
+      "id": "61eb1b2b-da69-45f8-87fa-945bcbe25a8a",
+      "name": "Validar SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      },
+      "id": "1a4ab8f7-c84a-4e15-bdbd-87a29007dad0",
+      "name": "¿SELECT válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT * FROM (\n  {{ Buffer.from($json.b64, 'base64').toString('utf8') }}\n) AS consulta_bot LIMIT 50;",
+        "options": {}
+      },
+      "id": "4daeb2d5-8917-49f9-ad7a-d2af24d6c11b",
+      "name": "Ejecutar como agente_ia",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1840,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-agente",
+          "name": "PG Agente IA (agente_ia)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const info = $items(\"Validar SQL\")[0].json;\nconst filas = $input.all().map(i => i.json);\nlet cuerpo;\nif (!filas.length) {\n  cuerpo = 'Sin resultados para la consulta.';\n} else {\n  const cols = Object.keys(filas[0]);\n  cuerpo = filas.slice(0, 20).map(f => cols.map(c => `${c}: ${f[c]}`).join(' · ')).join('\\n');\n  if (filas.length > 20) cuerpo += `\\n… (${filas.length - 20} filas más)`;\n}\nreturn [{ json: { chat_id: info.chat_id,\n  texto: `📊 NutriAnimales S.A.\\nConsulta: ${info.pregunta}\\n\\n${cuerpo}` } }];"
+      },
+      "id": "b315d082-29f4-4c94-a36c-417aea3b8806",
+      "name": "Formatear resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT monitor.registrar_bloqueo_bot(convert_from(decode('{{ $json.b64 }}', 'base64'), 'UTF8')::jsonb) AS id;",
+        "options": {}
+      },
+      "id": "9177652d-9d38-4613-a78c-fb11a69f637f",
+      "name": "Registrar intento",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        960,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nreturn [{ json: { chat_id: r.chat_id,\n  texto: `⛔ No se pudo atender la solicitud.\\nMotivo: ${r.motivo || 'la consulta generada no es de solo lectura'}.\\nEl bot solo responde reportes agregados a usuarios autorizados.\\nEl intento quedó registrado.` } }];"
+      },
+      "id": "a933a949-f864-46d0-9fd6-7ef131f065ac",
+      "name": "Preparar rechazo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e9017abf-1ad8-404e-a35d-98f4a7ee77c7",
+      "name": "Responder resultado",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2280,
+        220
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "cred-telegram",
+          "name": "Telegram Bot NutriAnimales"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ca010669-fce2-4d81-a27d-d1bad21fec40",
+      "name": "Responder rechazo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1400,
+        560
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "cred-telegram",
+          "name": "Telegram Bot NutriAnimales"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Rol del usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rol del usuario": {
+      "main": [
+        [
+          {
+            "node": "Inspeccionar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inspeccionar entrada": {
+      "main": [
+        [
+          {
+            "node": "¿Autorizado y válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Autorizado y válido?": {
+      "main": [
+        [
+          {
+            "node": "Preparar prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar intento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar prompt": {
+      "main": [
+        [
+          {
+            "node": "Groq · generar SELECT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq · generar SELECT": {
+      "main": [
+        [
+          {
+            "node": "Validar SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar SQL": {
+      "main": [
+        [
+          {
+            "node": "¿SELECT válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿SELECT válido?": {
+      "main": [
+        [
+          {
+            "node": "Ejecutar como agente_ia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar intento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar como agente_ia": {
+      "main": [
+        [
+          {
+            "node": "Formatear resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear resultado": {
+      "main": [
+        [
+          {
+            "node": "Responder resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar intento": {
+      "main": [
+        [
+          {
+            "node": "Preparar rechazo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar rechazo": {
+      "main": [
+        [
+          {
+            "node": "Responder rechazo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Costa_Rica",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {}
+}

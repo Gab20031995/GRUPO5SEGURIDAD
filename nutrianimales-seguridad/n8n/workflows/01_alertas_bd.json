@@ -1,0 +1,696 @@
+{
+  "name": "NutriAnimales · 16 alertas de BD (R/H/D)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "b67eb576-f839-4108-8865-fe6bbebc156f",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Solo pasan filas con una alerta nueva (la BD ya deduplicó).\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  if (j.texto && j.chat_id && j.chat_id !== '0') {\n    out.push({ json: { chat_id: j.chat_id, codigo: j.codigo, texto: String(j.texto).slice(0, 4000) } });\n  }\n}\nreturn out;"
+      },
+      "id": "2e62194a-0a93-47c6-af3a-957d4bee6b39",
+      "name": "Filtrar alertas nuevas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "56942914-2f2e-4075-9b16-0c407458eacf",
+      "name": "Enviar a Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        760
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "cred-telegram",
+          "name": "Telegram Bot NutriAnimales"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('R1');",
+        "options": {}
+      },
+      "id": "542ed33a-c136-4f3e-a55c-9f80231c22db",
+      "name": "R1 · Consulta lenta",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('R2');",
+        "options": {}
+      },
+      "id": "fb196f20-87cd-486e-a22e-9cce2e0fad60",
+      "name": "R2 · Saturación de conexiones",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('R3');",
+        "options": {}
+      },
+      "id": "29233ae9-9971-49d1-8755-f6f7e4d949a4",
+      "name": "R3 · Horario no laboral",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('R4');",
+        "options": {}
+      },
+      "id": "c1a223c7-53a4-4505-a075-746f7cac8082",
+      "name": "R4 · Autenticación fallida PG",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('R5');",
+        "options": {}
+      },
+      "id": "afc7ad72-2718-4d65-a4f2-21d2373813bb",
+      "name": "R5 · Cambio en postgresql.conf",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('H2');",
+        "options": {}
+      },
+      "id": "6e217869-e69a-4c07-aef6-fc85406607ef",
+      "name": "H2 · Hash pg_hba / postgresql.conf",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('H3');",
+        "options": {}
+      },
+      "id": "3889279e-442e-4e10-8b42-70d26117bb5c",
+      "name": "H3 · GRANT a agente_ia",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        600
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('H4');",
+        "options": {}
+      },
+      "id": "3bac682c-6979-4543-bc7e-144d330ee64c",
+      "name": "H4 · IP fuera de red Docker",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('H5');",
+        "options": {}
+      },
+      "id": "418b96b0-7734-4b05-9fc2-633851324cf9",
+      "name": "H5 · SSL off / MD5",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        800
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('D1');",
+        "options": {}
+      },
+      "id": "24cec6bc-f441-4fd1-9843-72d597c06ae6",
+      "name": "D1 · DELETE masivo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('D2');",
+        "options": {}
+      },
+      "id": "5e83d729-f0be-4957-82f0-49f94b003288",
+      "name": "D2 · Crecimiento anormal",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        1000
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('D3');",
+        "options": {}
+      },
+      "id": "6e2c48a6-c70f-4467-ae8d-59d6f3d300d2",
+      "name": "D3 · Backup obsoleto",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('D4');",
+        "options": {}
+      },
+      "id": "c8b148b8-ab54-4b2b-ba78-c99a1e6186ab",
+      "name": "D4 · Duplicados",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        1200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('D5');",
+        "options": {}
+      },
+      "id": "f8663427-dca0-45bd-85b8-f74cde386e03",
+      "name": "D5 · Bloqueos / deadlock",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        1300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('D6');",
+        "options": {}
+      },
+      "id": "72900747-5365-4965-89ca-caeecfc3df0e",
+      "name": "D6 · UPDATE masivo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        1400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM monitor.ejecutar_chequeo('D7');",
+        "options": {}
+      },
+      "id": "da1e260b-db36-4c45-9eb5-e43715aa8cc9",
+      "name": "D7 · SELECT masivo en tabla sensible",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        340,
+        1500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "R1 · Consulta lenta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "R2 · Saturación de conexiones",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "R3 · Horario no laboral",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "R4 · Autenticación fallida PG",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "R5 · Cambio en postgresql.conf",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "H2 · Hash pg_hba / postgresql.conf",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "H3 · GRANT a agente_ia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "H4 · IP fuera de red Docker",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "H5 · SSL off / MD5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D1 · DELETE masivo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D2 · Crecimiento anormal",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D3 · Backup obsoleto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D4 · Duplicados",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D5 · Bloqueos / deadlock",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D6 · UPDATE masivo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D7 · SELECT masivo en tabla sensible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R1 · Consulta lenta": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R2 · Saturación de conexiones": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R3 · Horario no laboral": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R4 · Autenticación fallida PG": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R5 · Cambio en postgresql.conf": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H2 · Hash pg_hba / postgresql.conf": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H3 · GRANT a agente_ia": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H4 · IP fuera de red Docker": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H5 · SSL off / MD5": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D1 · DELETE masivo": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D2 · Crecimiento anormal": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D3 · Backup obsoleto": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D4 · Duplicados": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D5 · Bloqueos / deadlock": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D6 · UPDATE masivo": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D7 · SELECT masivo en tabla sensible": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar alertas nuevas": {
+      "main": [
+        [
+          {
+            "node": "Enviar a Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Costa_Rica",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {}
+}
