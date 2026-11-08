@@ -1,0 +1,153 @@
+{
+  "name": "NutriAnimales · Alertas del host (H1 UFW, R4 SSH)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "alertas-host",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "017c300b-62a5-4cf4-a2c5-743438a6ce13",
+      "name": "Webhook monitor del host",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "cred-webhook",
+          "name": "Token Webhook Host"
+        }
+      },
+      "webhookId": "f596282a-21c3-471e-a378-e8fcaaeca055"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida el payload del monitor del host y lo codifica en base64\n// para pasarlo a PostgreSQL sin concatenar texto libre en el SQL.\nconst out = [];\nfor (const item of $input.all()) {\n  const b = item.json.body || {};\n  if (!['H1', 'R4'].includes(b.codigo)) continue;\n  const limpio = {\n    codigo: b.codigo,\n    severidad: b.severidad === 'ADVERTENCIA' ? 'ADVERTENCIA' : 'CRÍTICA',\n    titulo: String(b.titulo || '').slice(0, 150),\n    detalle: String(b.detalle || '').slice(0, 3000),\n    clave: String(b.clave || b.codigo).slice(0, 150),\n  };\n  out.push({ json: { b64: Buffer.from(JSON.stringify(limpio), 'utf8').toString('base64') } });\n}\nreturn out;"
+      },
+      "id": "0cf13a17-8ded-4105-8aef-d624aaeafb9f",
+      "name": "Validar payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT * FROM monitor.registrar_alerta_externa(convert_from(decode('{{ $json.b64 }}', 'base64'), 'UTF8')::jsonb);",
+        "options": {}
+      },
+      "id": "24bab8f3-3cf2-439f-907a-76988de7352b",
+      "name": "Registrar alerta (dedup)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cred-pg-monitor",
+          "name": "PG Monitor (monitor_n8n)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Solo pasan filas con una alerta nueva (la BD ya deduplicó).\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  if (j.texto && j.chat_id && j.chat_id !== '0') {\n    out.push({ json: { chat_id: j.chat_id, codigo: j.codigo, texto: String(j.texto).slice(0, 4000) } });\n  }\n}\nreturn out;"
+      },
+      "id": "9ac4f58e-ab84-4629-ac5b-7a734f71b56a",
+      "name": "Filtrar alertas nuevas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "1d83ed08-3f60-4e85-89de-c7e6320686e7",
+      "name": "Enviar a Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "cred-telegram",
+          "name": "Telegram Bot NutriAnimales"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook monitor del host": {
+      "main": [
+        [
+          {
+            "node": "Validar payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar payload": {
+      "main": [
+        [
+          {
+            "node": "Registrar alerta (dedup)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar alerta (dedup)": {
+      "main": [
+        [
+          {
+            "node": "Filtrar alertas nuevas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar alertas nuevas": {
+      "main": [
+        [
+          {
+            "node": "Enviar a Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Costa_Rica",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {}
+}
