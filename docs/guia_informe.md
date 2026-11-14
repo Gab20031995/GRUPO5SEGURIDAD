@@ -45,13 +45,12 @@ final debe tener 15–20 páginas con capturas reales.
 
 ## 17 alertas (capturas en Telegram)
 
-Dispara cada categoría y captura el mensaje que llega al chat. Para forzar
-una alerta concreta sin esperar al ciclo de un minuto:
+Dispara cada categoría y captura el mensaje que llega al chat (N8N evalúa
+cada minuto). Para ver qué alertas están activas sin consumirlas:
+`./scripts/probar_alertas.sh`.
 
-```bash
-docker compose exec postgres psql -U postgres -d nutrianimales_db \
-  -c "SELECT texto FROM monitor.ejecutar_chequeo('R1');"
-```
+> ⚠️ No usar `monitor.ejecutar_chequeo()` a mano: registra la alerta y la
+> deduplicación (60 min) evita que N8N la envíe a Telegram.
 
 - R1: `... -c "SELECT pg_sleep(1.3);"` y esperar el ciclo.
 - R2: abrir 12 conexiones (`for i in $(seq 12); do ... pg_sleep(8) & done`).

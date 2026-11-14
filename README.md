@@ -337,14 +337,15 @@ que una escritura sería rechazada por PostgreSQL aunque superara el filtro.
 
 Para la evidencia del informe, captura en cada ataque: (1) el comando, (2) la
 alerta en Telegram con hora, (3) la fila en `auditoria_datos` cuando aplique y
-(4) la respuesta tomada. Como el motor corre cada minuto, puedes forzar la
-evaluación inmediata de una alerta concreta:
+(4) la respuesta tomada. El motor corre cada minuto: espera hasta ~60 s a
+que llegue el mensaje. Para ver qué alertas están activas **sin consumirlas**:
 
 ```bash
-docker compose exec -T -u postgres postgres \
-  psql -U postgres -d nutrianimales_db \
-  -c "SELECT codigo, severidad, texto FROM monitor.ejecutar_chequeo('H3');"
+./scripts/probar_alertas.sh
 ```
+
+> ⚠️ No llames a `monitor.ejecutar_chequeo()` a mano durante una demo: registra
+> la alerta y la deduplicación (60 min) impide que N8N la envíe a Telegram.
 
 > ⚠️ Solo para el entorno de laboratorio de este proyecto. No ejecutar contra
 > sistemas de terceros.

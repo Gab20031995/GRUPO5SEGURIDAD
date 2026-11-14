@@ -10,7 +10,10 @@ Q(){ docker compose exec -T -u postgres postgres psql -U postgres -d nutrianimal
 
 echo "===== Estado de las alertas de base de datos ====="
 for c in R1 R2 R3 R4 R5 H2 H3 H4 H5 D1 D2 D3 D4 D5 D6 D7; do
-  N=$(Q -At -c "SELECT count(*) FROM monitor.ejecutar_chequeo('$c');")
+  # Se evalúa el chequeo dentro de una transacción con ROLLBACK: NO registra
+  # la alerta ni activa la deduplicación, así N8N igual la envía a Telegram.
+  # (Llamar a monitor.ejecutar_chequeo() a mano "consume" la alerta por 60 min.)
+  N=$(Q -At -c "BEGIN; SELECT count(*) FROM monitor.chk_${c,,}(); ROLLBACK;" | sed -n 2p)
   if [[ "$N" -gt 0 ]]; then printf '  [DISPARA]  %s  (%s)\n' "$c" "$N"
   else                      printf '  .          %s\n' "$c"; fi
 done
