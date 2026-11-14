@@ -36,7 +36,8 @@ print(json.dumps({
   "detalle":  os.environ["DET"],
   "clave":    os.environ["CLV"],
 }))')
-  curl -sS -k -m 10 -X POST "$WEBHOOK_URL" \
+  # --fail: un 401/403 (token incorrecto) o 5xx cuenta como error, no como enviado
+  curl -sS -k --fail -m 10 -X POST "$WEBHOOK_URL" \
        -H "Content-Type: application/json" \
        -H "X-Webhook-Token: $WEBHOOK_TOKEN" \
        -d "$payload" >/dev/null \
@@ -46,7 +47,11 @@ print(json.dumps({
 
 # ---------- H1: estado del firewall UFW ----------
 if command -v ufw >/dev/null 2>&1; then
-  ACTUAL="$(sudo ufw status verbose 2>/dev/null || echo 'ufw inaccesible')"
+  # sudo -n: nunca pide contraseña (cron no tiene terminal). Si no hay regla
+  # en /etc/sudoers.d/monitor-ufw, se omite H1 en vez de dar un falso positivo.
+  if ! ACTUAL="$(sudo -n /usr/sbin/ufw status verbose 2>/dev/null)"; then
+    echo "[$(date '+%F %T')] AVISO: sin acceso a 'sudo ufw status' (ver cron.md paso 2); H1 omitido" >&2
+  else
   HASH_NUEVO="$(printf '%s' "$ACTUAL" | md5sum | cut -d' ' -f1)"
   PREV="$ESTADO/ufw.hash"
   PREV_TXT="$ESTADO/ufw.txt"
@@ -63,6 +68,7 @@ Acción: revisar si fue autorizado; restaurar reglas y reactivar UFW si procede.
   fi
   printf '%s' "$HASH_NUEVO" > "$PREV"
   printf '%s' "$ACTUAL" > "$PREV_TXT"
+  fi
 fi
 
 # ---------- R4: fuerza bruta SSH ----------

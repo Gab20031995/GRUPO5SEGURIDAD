@@ -68,7 +68,8 @@ services:
       N8N_PORT: 5678
       N8N_PROTOCOL: http                    # TLS lo termina Nginx
       N8N_EDITOR_BASE_URL: https://localhost:8443/
-      WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL}   # nombre usado por N8N >= 2.x
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL}       # compatibilidad con versiones previas
       N8N_PROXY_HOPS: 1
       N8N_SECURE_COOKIE: "true"
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
