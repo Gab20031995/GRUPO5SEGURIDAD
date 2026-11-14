@@ -10,3 +10,10 @@ backups/
 
 # Estado local del monitor del host
 host-monitor/estado/
+
+# Config local del monitor del host (contiene el token del webhook)
+host-monitor/monitor_host.env
+
+# Archivos temporales de editores (nano/vim)
+*.swp
+*~

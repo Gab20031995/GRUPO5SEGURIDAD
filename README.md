@@ -22,7 +22,7 @@ script de demostración A2). En Linux/WSL o macOS.
 
 ```bash
 # 1. Entrar al proyecto
-cd nutrianimales-seguridad
+cd GRUPO5SEGURIDAD
 
 # 2. Preparar .env (contraseñas aleatorias), volúmenes y certificado de Nginx
 ./scripts/setup.sh
@@ -116,7 +116,7 @@ problemas de permisos de bind-mounts y de saltos de línea CRLF):
 # Opción A (recomendada): clonar desde GitHub dentro de WSL
 cd ~
 git clone https://github.com/Gab20031995/GRUPO5SEGURIDAD.git
-cd GRUPO5SEGURIDAD/nutrianimales-seguridad
+cd GRUPO5SEGURIDAD
 
 # Opción B: copiar desde una carpeta de Windows
 # cp -r "/mnt/c/Users/Gabo/Desktop/ULEAD/SEGURIDAD/nutrianimales-seguridad" ~/
@@ -503,7 +503,6 @@ La tabla `alertas_auditoria` conservó las alertas con fecha/hora:
 |-------|------|
 | Configurar N8N + Telegram | Crear 5 credenciales, importar 3 workflows y activarlos (§2). Rotar antes el token de Telegram si se expuso. |
 | Ataques de host A1 / A3 | Requieren `host-monitor` + `ufw`/`ssh` en el host (`host-monitor/cron.md`). |
-| Commit de correcciones | `.env.example` (dominio válido) y `-u postgres` en `probar_alertas.sh`, `backup.sh`, `ataques/lib.sh`. |
 
 ---
 
