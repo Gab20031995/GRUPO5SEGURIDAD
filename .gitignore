@@ -17,3 +17,6 @@ host-monitor/monitor_host.env
 # Archivos temporales de editores (nano/vim)
 *.swp
 *~
+
+# Evidencias generadas por scripts/demo_alertas.sh y evidencias.sh
+evidencias/
