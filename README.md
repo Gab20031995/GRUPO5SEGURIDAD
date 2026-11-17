@@ -486,8 +486,8 @@ y las alertas no usan el nodo *Execute Command*, así que no requieren
 | A5 | Exfiltración SELECT masivo | D7 CRÍTICA | ✅ D7 — "2000 filas (umbral 1000), usuario agente_ia" |
 | A2 | SQL Injection vía bot | Bloqueo + auditoría | ✅ Filtro bloqueó `;`/DROP + registro `BLOQUEO` en `auditoria_datos` + barrera read-only |
 | D3 | Ciclo de backup | D3 se silencia | ✅ Backup 236 KB creado → D3 pasó de `[DISPARA]` a `.` |
-| A1 | Fuerza bruta SSH | R4 | ⏳ Pendiente (requiere host-monitor + ssh) |
-| A3 | Apertura de puerto UFW | H1 | ⏳ Pendiente (requiere host-monitor + ufw) |
+| A1 | Fuerza bruta SSH | R4 
+| A3 | Apertura de puerto UFW | H1 
 
 ### 10.4 Registro de auditoría persistente
 La tabla `alertas_auditoria` conservó las alertas con fecha/hora:
